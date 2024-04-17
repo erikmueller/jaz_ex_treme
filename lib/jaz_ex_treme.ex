@@ -1,10 +1,12 @@
+heatSources = [earth: 1, water: 2, air: 3]
+
 defmodule JazExTreme do
   alias JazExTreme.Client
 
   @flow_temp "55"
   @return_temp "45"
   @norm_temp "-13"
-  @id_air 3
+  @heat_source_id heatSources[:air]
 
   defp get_manufacturers() do
     case Client.get("https://www.waermepumpe.de/jazrechner/") do
@@ -51,7 +53,7 @@ defmodule JazExTreme do
            %{
              # TODO loop
              "id_hersteller" => manufacturer_id,
-             "id_typ" => @id_air,
+             "id_typ" => @heat_source_id,
              "tx_bwpjazrechner_jazrechner[sel]" => "getWaermepumpenByHerstellerAndTyp"
            }
          ) do
@@ -64,7 +66,8 @@ defmodule JazExTreme do
             ["#{manufacturer_label} #{pump_label}", manufacturer_id, pump_id]
           end)
 
-        get_pumps(rest, pumps ++ acc)
+        IO.inspect(pumps)
+        get_pumps(rest, acc ++ pumps)
 
       {:error, error} ->
         IO.puts("Error getting pumps for manufacturer #{manufacturer_label}")
@@ -96,7 +99,7 @@ defmodule JazExTreme do
            "tx_bwpjazrechner_jazrechner[solar]" => "nein",
            "tx_bwpjazrechner_jazrechner[haus_aufwand_solaranlage]" => "2",
            "tx_bwpjazrechner_jazrechner[wp_hersteller]" => manufacturer_id,
-           "tx_bwpjazrechner_jazrechner[wp_waermequelle]" => @id_air,
+           "tx_bwpjazrechner_jazrechner[wp_waermequelle]" => @heat_source_id,
            "tx_bwpjazrechner_jazrechner[wp_waermepumpe]" => pump_id,
            "tx_bwpjazrechner_jazrechner[wp_zwischenkreiswaermetauscher]" => "nein",
            "tx_bwpjazrechner_jazrechner[wp_normaussentemp]" => @norm_temp,
@@ -165,8 +168,11 @@ defmodule JazExTreme do
         IO.puts("\nGot #{count} pumps, estimating ~#{count * 1.5 / 60} minutes to calculate.\n")
       end)
       |> calculate_jaz()
-      |> Enum.sort(fn a, b -> a.heat < b.heat end)
+      |> Enum.sort(fn a, b -> a.heat > b.heat end)
 
-    File.write!("./priv/#{@flow_temp}_#{@return_temp}_#{time}.json", result)
+    File.write!(
+      "./priv/#{@flow_temp}_#{@return_temp}_#{time}.json",
+      Jason.encode!(result, pretty: true)
+    )
   end
 end
