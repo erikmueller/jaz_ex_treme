@@ -3,6 +3,7 @@ heatSources = [earth: 1, water: 2, air: 3]
 defmodule JazExTreme do
   alias JazExTreme.Client
 
+  @blacklist ["Panasonic", "Aereco", "Mitsubishi Electric", "Toshiba", "Kampmann"]
   @flow_temp "55"
   @return_temp "45"
   @norm_temp "-13"
@@ -16,6 +17,7 @@ defmodule JazExTreme do
         document
         |> Floki.find("#wp_hersteller > option")
         |> Enum.map(fn {_, [{_, id}], [label]} -> [label, id] end)
+        |> Enum.filter(fn [label, _] -> label not in @blacklist end)
         |> Enum.filter(fn
           [_, ""] ->
             false
