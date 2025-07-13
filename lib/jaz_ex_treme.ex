@@ -3,6 +3,8 @@ heatSources = [earth: 1, water: 2, air: 3]
 defmodule JazExTreme do
   alias JazExTreme.Client
 
+  @client Client.client()
+
   @blacklist ["Panasonic", "Aereco", "Mitsubishi Electric", "Toshiba", "Kampmann"]
   @flow_temp "55"
   @return_temp "45"
@@ -10,7 +12,7 @@ defmodule JazExTreme do
   @heat_source_id heatSources[:air]
 
   defp get_manufacturers() do
-    case Client.get("https://www.waermepumpe.de/jazrechner/") do
+    case Tesla.get(@client, "https://www.waermepumpe.de/jazrechner/") do
       {:ok, %Tesla.Env{status: 200, body: html}} ->
         {:ok, document} = Floki.parse_document(html)
 
@@ -30,6 +32,7 @@ defmodule JazExTreme do
       {:error, error} ->
         IO.puts("Error getting manufacturers")
         IO.inspect(error)
+
         exit(error)
     end
   end
@@ -50,10 +53,10 @@ defmodule JazExTreme do
 
     IO.puts("Getting #{manufacturer_label} pumps")
 
-    case Client.post(
+    case Tesla.post(
+           @client,
            "https://www.waermepumpe.de/jazrechner/?#{pump_query}",
            %{
-             # TODO loop
              "id_hersteller" => manufacturer_id,
              "id_typ" => @heat_source_id,
              "tx_bwpjazrechner_jazrechner[sel]" => "getWaermepumpenByHerstellerAndTyp"
@@ -91,47 +94,51 @@ defmodule JazExTreme do
 
     [[label, manufacturer_id, pump_id] | rest] = pumps
 
-    case Client.post("https://www.waermepumpe.de/jazrechner/?#{calc_jaz_query}", %{
-           "tx_bwpjazrechner_jazrechner[__referrer][@extension]" => "BwpJazrechner",
-           "tx_bwpjazrechner_jazrechner[__referrer][@controller]" => "Start",
-           "tx_bwpjazrechner_jazrechner[__referrer][@action]" => "index",
-           "tx_bwpjazrechner_jazrechner[haus_heizgrenztemp]" => "15",
-           "tx_bwpjazrechner_jazrechner[haus_vorlauftemp]" => @flow_temp,
-           "tx_bwpjazrechner_jazrechner[haus_ruecklauftemp]" => @return_temp,
-           "tx_bwpjazrechner_jazrechner[solar]" => "nein",
-           "tx_bwpjazrechner_jazrechner[haus_aufwand_solaranlage]" => "2",
-           "tx_bwpjazrechner_jazrechner[wp_hersteller]" => manufacturer_id,
-           "tx_bwpjazrechner_jazrechner[wp_waermequelle]" => @heat_source_id,
-           "tx_bwpjazrechner_jazrechner[wp_waermepumpe]" => pump_id,
-           "tx_bwpjazrechner_jazrechner[wp_zwischenkreiswaermetauscher]" => "nein",
-           "tx_bwpjazrechner_jazrechner[wp_normaussentemp]" => @norm_temp,
-           "tx_bwpjazrechner_jazrechner[wp_leistung_quellenpumpe]" => "0",
-           "tx_bwpjazrechner_jazrechner[wp_betriebsweise]" => "1",
-           "tx_bwpjazrechner_jazrechner[wp_normaussentemp_bivalenz]" => "-14",
-           "tx_bwpjazrechner_jazrechner[wp_bivalenzpunkt]" => "0",
-           "tx_bwpjazrechner_jazrechner[wp_solare_deckung]" => "0",
-           "tx_bwpjazrechner_jazrechner[wp_TdV_m]" => "5",
-           "tx_bwpjazrechner_jazrechner[wp_bauart]" => "fixed",
-           "tx_bwpjazrechner_jazrechner[wp_id_pumpentyp]" => "2",
-           "tx_bwpjazrechner_jazrechner[warmwasser_anteil]" => "18",
-           "tx_bwpjazrechner_jazrechner[warmwasser_erzeuger]" => "1",
-           "tx_bwpjazrechner_jazrechner[ww_wp_hersteller]" => "3",
-           "tx_bwpjazrechner_jazrechner[wp_aussenluft_wwspeicher_en16147_lastprofil]" => "L",
-           "tx_bwpjazrechner_jazrechner[wp_raumluft_wwspeicher_en16147_lastprofil]" => "L",
-           "tx_bwpjazrechner_jazrechner[wp_abluft_wwspeicher_en16147_lastprofil]" => "L",
-           "tx_bwpjazrechner_jazrechner[wp_sole_wwspeicher_en16147_lastprofil]" => "L",
-           "tx_bwpjazrechner_jazrechner[wp_sole_wwspeicher_id_pumpentyp]" => "2",
-           "tx_bwpjazrechner_jazrechner[wp_grundwasser_wwspeicher_zwischenkreiswaermetauscher]" =>
-             "nein",
-           "tx_bwpjazrechner_jazrechner[wp_grundwasser_wwspeicher_en16147_lastprofil]" => "L",
-           "tx_bwpjazrechner_jazrechner[wp_grundwasser_wwspeicher_id_pumpentyp]" => "2",
-           "tx_bwpjazrechner_jazrechner[wp_dhx_wwspeicher_en16147_lastprofil]" => "L",
-           "tx_bwpjazrechner_jazrechner[warmwasser_speichertemperatur]" => "50",
-           "tx_bwpjazrechner_jazrechner[warmwasser_speichertyp]" => "wue_innen",
-           "tx_bwpjazrechner_jazrechner[warmwasser_solare_deckung]" => "0",
-           "tx_bwpjazrechner_jazrechner[sel]" => "calculateJAZ",
-           "type" => "3001"
-         }) do
+    case Tesla.post(
+           @client,
+           "https://www.waermepumpe.de/jazrechner/?#{calc_jaz_query}",
+           %{
+             "tx_bwpjazrechner_jazrechner[__referrer][@extension]" => "BwpJazrechner",
+             "tx_bwpjazrechner_jazrechner[__referrer][@controller]" => "Start",
+             "tx_bwpjazrechner_jazrechner[__referrer][@action]" => "index",
+             "tx_bwpjazrechner_jazrechner[haus_heizgrenztemp]" => "15",
+             "tx_bwpjazrechner_jazrechner[haus_vorlauftemp]" => @flow_temp,
+             "tx_bwpjazrechner_jazrechner[haus_ruecklauftemp]" => @return_temp,
+             "tx_bwpjazrechner_jazrechner[solar]" => "nein",
+             "tx_bwpjazrechner_jazrechner[haus_aufwand_solaranlage]" => "2",
+             "tx_bwpjazrechner_jazrechner[wp_hersteller]" => manufacturer_id,
+             "tx_bwpjazrechner_jazrechner[wp_waermequelle]" => @heat_source_id,
+             "tx_bwpjazrechner_jazrechner[wp_waermepumpe]" => pump_id,
+             "tx_bwpjazrechner_jazrechner[wp_zwischenkreiswaermetauscher]" => "nein",
+             "tx_bwpjazrechner_jazrechner[wp_normaussentemp]" => @norm_temp,
+             "tx_bwpjazrechner_jazrechner[wp_leistung_quellenpumpe]" => "0",
+             "tx_bwpjazrechner_jazrechner[wp_betriebsweise]" => "1",
+             "tx_bwpjazrechner_jazrechner[wp_normaussentemp_bivalenz]" => "-14",
+             "tx_bwpjazrechner_jazrechner[wp_bivalenzpunkt]" => "0",
+             "tx_bwpjazrechner_jazrechner[wp_solare_deckung]" => "0",
+             "tx_bwpjazrechner_jazrechner[wp_TdV_m]" => "5",
+             "tx_bwpjazrechner_jazrechner[wp_bauart]" => "fixed",
+             "tx_bwpjazrechner_jazrechner[wp_id_pumpentyp]" => "2",
+             "tx_bwpjazrechner_jazrechner[warmwasser_anteil]" => "18",
+             "tx_bwpjazrechner_jazrechner[warmwasser_erzeuger]" => "1",
+             "tx_bwpjazrechner_jazrechner[ww_wp_hersteller]" => "3",
+             "tx_bwpjazrechner_jazrechner[wp_aussenluft_wwspeicher_en16147_lastprofil]" => "L",
+             "tx_bwpjazrechner_jazrechner[wp_raumluft_wwspeicher_en16147_lastprofil]" => "L",
+             "tx_bwpjazrechner_jazrechner[wp_abluft_wwspeicher_en16147_lastprofil]" => "L",
+             "tx_bwpjazrechner_jazrechner[wp_sole_wwspeicher_en16147_lastprofil]" => "L",
+             "tx_bwpjazrechner_jazrechner[wp_sole_wwspeicher_id_pumpentyp]" => "2",
+             "tx_bwpjazrechner_jazrechner[wp_grundwasser_wwspeicher_zwischenkreiswaermetauscher]" =>
+               "nein",
+             "tx_bwpjazrechner_jazrechner[wp_grundwasser_wwspeicher_en16147_lastprofil]" => "L",
+             "tx_bwpjazrechner_jazrechner[wp_grundwasser_wwspeicher_id_pumpentyp]" => "2",
+             "tx_bwpjazrechner_jazrechner[wp_dhx_wwspeicher_en16147_lastprofil]" => "L",
+             "tx_bwpjazrechner_jazrechner[warmwasser_speichertemperatur]" => "50",
+             "tx_bwpjazrechner_jazrechner[warmwasser_speichertyp]" => "wue_innen",
+             "tx_bwpjazrechner_jazrechner[warmwasser_solare_deckung]" => "0",
+             "tx_bwpjazrechner_jazrechner[sel]" => "calculateJAZ",
+             "type" => "3001"
+           }
+         ) do
       {:ok, %Tesla.Env{status: 200, body: json}} ->
         result = Jason.decode!(json)
 
@@ -163,7 +170,9 @@ defmodule JazExTreme do
 
     result =
       get_manufacturers()
-      |> tap(fn manufacturers -> IO.puts("\nGot #{Enum.count(manufacturers)} manufacturers\n") end)
+      |> tap(fn manufacturers ->
+        IO.puts("\nGot #{Enum.count(manufacturers)} manufacturers\n")
+      end)
       |> get_pumps()
       |> tap(fn pumps ->
         count = Enum.count(pumps)

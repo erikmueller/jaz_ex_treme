@@ -21,7 +21,7 @@ defmodule JazExTreme.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:tesla, "~> 1.9"},
+      {:tesla, "~> 1.11"},
       {:hackney, "~> 1.20"},
       {:floki, "~> 0.36.0"},
       {:jason, "~> 1.4"}
